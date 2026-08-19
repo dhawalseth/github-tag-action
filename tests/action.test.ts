@@ -97,13 +97,10 @@ describe('github-tag-action', () => {
       expect(mockSetFailed).not.toBeCalled();
     });
 
-    it('still creates a best-effort tag via default_bump when getCommits keeps failing', async () => {
+    it('propagates a getCommits failure as a real failure (does not fabricate an empty commit range)', async () => {
       /*
        * Given
        */
-      const mockWarning = jest
-        .spyOn(core, 'warning')
-        .mockImplementation(() => {});
       jest
         .spyOn(utils, 'getCommits')
         .mockRejectedValue(
@@ -116,22 +113,14 @@ describe('github-tag-action', () => {
         .mockImplementation(async () => validTags);
 
       /*
-       * When
+       * When / Then
        */
-      await action();
-
-      /*
-       * Then
-       */
-      expect(mockCreateTag).toHaveBeenCalledWith(
-        'v0.0.1',
-        expect.any(Boolean),
-        expect.any(String)
+      await expect(action()).rejects.toThrow(
+        'Sorry, this diff is taking too long to generate.'
       );
-      expect(mockSetFailed).not.toBeCalled();
-      expect(mockWarning).toHaveBeenCalledWith(
-        expect.stringContaining('Proceeding with an empty commit list')
-      );
+      expect(mockCreateTag).not.toBeCalled();
+      expect(mockSetOutput).toHaveBeenCalledWith('tag_created', 'false');
+      expect(mockSetOutput).not.toHaveBeenCalledWith('tag_created', 'true');
     });
 
     it('does not create tag without commits and default_bump set to false', async () => {
